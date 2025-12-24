@@ -617,7 +617,7 @@
             }
 
             #network-container {
-                height: 300px;
+                height: 500px;
             }
         }
     </style>
@@ -628,7 +628,6 @@
         <div class="header">
             <h1>📊 زمان‌سنجی مونتاژ سه راهی برق صنعتی</h1>
             <p>Time Study Dashboard - Industrial Electrical Socket Assembly</p>
-            
         </div>
 
         <div class="project-info">
@@ -1197,6 +1196,7 @@
             const container = document.getElementById('network-container');
             if (network) return;
 
+            const isMobile = window.innerWidth < 600;
             const nodeColor = (c) => c ? { background: '#c53030', border: '#9b2c2c' } : { background: '#3182ce', border: '#2c5282' };
 
             const nodes = new vis.DataSet([
@@ -1231,6 +1231,21 @@
             };
 
             network = new vis.Network(container, { nodes, edges }, options);
+
+            // در موبایل، به جای نمایش کل نمودار (که ریز می‌شود)، روی بخشی از آن زوم می‌کنیم
+            network.once("afterDrawing", function () {
+                if (window.innerWidth < 600) {
+                    network.moveTo({
+                        scale: 0.8, // زوم اولیه مناسب برای خوانایی
+                        position: { x: -100, y: 0 } // تمرکز روی سمت راست (شروع) - با توجه به جهت RTL و مختصات
+                    });
+                    // فیت کردن روی گره‌های ابتدایی برای اطمینان از دیده شدن شروع فرآیند
+                    network.fit({
+                        nodes: ['start', 'A', 'B'],
+                        animation: { duration: 1000, easingFunction: 'easeInOutQuad' }
+                    });
+                }
+            });
 
             network.on('click', function (params) {
                 const card = document.getElementById('activityCard');
@@ -1287,6 +1302,9 @@
         `;
             });
         }
+    </script>
+    <script>
+        // Auto-resize logic handled by CSS and vis-network internally
     </script>
     <div class="site-footer">
         پروژه زمان‌سنجی <span>|</span> استاد باذلی
