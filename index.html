@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Industrial Time Study Dashboard - زمان‌سنجی صنعتی مونتاژ سه راهی برق">
+    <title>زمان سنجی</title>
+
+    <!-- Preconnect to CDNs -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+
+    <!-- Defer Scripts for Performance -->
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet">
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box
+        }
+
+        :root {
+            --primary: #1a365d;
+            --accent: #3182ce;
+            --critical: #c53030;
+            --success: #276749;
+            --text: #1a202c;
+            --bg: #f7fafc;
+            --card: #fff;
+            --border: #e2e8f0
+        }
+
+        body {
+            font-family: 'Vazirmatn', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            line-height: 1.8;
+            color: var(--text);
+            padding: 1.5rem
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary), #2c5282);
+            padding: 1.5rem;
+            text-align: center;
+            color: #fff;
+            border-radius: 12px;
+            margin-bottom: 1.5rem
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin-bottom: .3rem
+        }
+
+        .header p {
+            opacity: .85;
+            font-size: .9rem
+        }
+
+        .project-info {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.95rem;
+            color: #2d3748;
+        }
+
+        .info-item span {
+            font-weight: 700;
+            color: #1a365d;
+        }
+
+        .info-item.full-width {
+            grid-column: 1 / -1;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 0.5rem;
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, .2);
+            padding: .2rem .8rem;
+            border-radius: 15px;
+            font-size: .8rem;
+            margin-top: .5rem;
+            display: inline-block
+        }
+
+        .section {
+            display: none
+        }
+
+        .section.active {
+            display: block
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1rem
+        }
+
+        .dash-card {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 1.2rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            text-align: center;
+            transition: all .2s
+        }
+
+        .dash-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent)
+        }
+
+        .dash-card .icon {
+            font-size: 2rem;
+            margin-bottom: .5rem
+        }
+
+        .dash-card h3 {
+            color: var(--primary);
+            font-size: 1rem;
+            margin-bottom: .3rem
+        }
+
+        .dash-card p {
+            color: #718096;
+            font-size: .85rem
+        }
+
+        .card {
+            background: var(--card);
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, .08);
+            padding: 1.2rem;
+            margin-bottom: 1.2rem
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            font-size: 1.15rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            padding-bottom: .6rem;
+            border-bottom: 2px solid var(--accent)
+        }
+
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: .6rem 1.2rem;
+            border-radius: 6px;
+            font-size: .9rem;
+            cursor: pointer;
+            font-family: inherit;
+            margin-bottom: 1rem
+        }
+
+        .back-btn:hover {
+            background: var(--accent)
+        }
+
+        #network-container {
+            width: 100%;
+            height: 380px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fafafa;
+            position: relative
+        }
+
+        .activity-card {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, .15);
+            min-width: 220px;
+            z-index: 100;
+            display: none
+        }
+
+        .activity-card.critical {
+            border: 2px solid var(--critical)
+        }
+
+        .activity-card.non-critical {
+            border: 2px solid var(--accent)
+        }
+
+        .activity-card h4 {
+            margin-bottom: .8rem;
+            padding-bottom: .5rem;
+            border-bottom: 1px solid var(--border)
+        }
+
+        .activity-card .row {
+            display: flex;
+            justify-content: space-between;
+            padding: .3rem 0;
+            font-size: .9rem
+        }
+
+        .activity-card .row span:first-child {
+            color: #718096
+        }
+
+        .activity-card .status {
+            margin-top: .8rem;
+            padding: .4rem;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: 600
+        }
+
+        .activity-card .status.critical {
+            background: #fed7d7;
+            color: var(--critical)
+        }
+
+        .activity-card .status.non-critical {
+            background: #bee3f8;
+            color: var(--accent)
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: .8rem;
+            padding: .8rem;
+            background: #f8fafc;
+            border-radius: 6px;
+            font-size: .85rem
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: .4rem
+        }
+
+        .legend-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px
+        }
+
+        .legend-box.critical {
+            background: var(--critical)
+        }
+
+        .legend-box.normal {
+            background: var(--accent)
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: .88rem;
+            min-width: 600px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        th {
+            background: var(--primary);
+            color: #fff;
+            padding: .7rem .5rem;
+            text-align: center
+        }
+
+        td {
+            padding: .6rem .5rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border)
+        }
+
+        tr:nth-child(even) td {
+            background: #f8fafc
+        }
+
+        tr.critical-row td {
+            background: #fff5f5
+        }
+
+        tr.total-row td {
+            background: var(--primary);
+            color: #fff;
+            font-weight: 600
+        }
+
+        .badge-sm {
+            padding: .2rem .6rem;
+            border-radius: 12px;
+            font-size: .75rem;
+            font-weight: 600
+        }
+
+        .badge-critical {
+            background: #fed7d7;
+            color: var(--critical)
+        }
+
+        .badge-normal {
+            background: #c6f6d5;
+            color: var(--success)
+        }
+
+        .formula-box {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: .8rem 0;
+            text-align: center
+        }
+
+        .note-box {
+            background: #fffaf0;
+            border-right: 3px solid #ed8936;
+            padding: .8rem 1rem;
+            border-radius: 0 6px 6px 0;
+            margin-top: .8rem;
+            font-size: .88rem;
+            color: #744210
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: .8rem;
+            margin-bottom: 1rem
+        }
+
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: .8rem;
+            text-align: center
+        }
+
+        .info-card .label {
+            font-size: .8rem;
+            color: #718096
+        }
+
+        .info-card .value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--primary)
+        }
+
+        .info-card.critical .value {
+            color: var(--critical)
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: .8rem;
+            margin-top: 1rem
+        }
+
+        .result-card {
+            background: var(--primary);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1.2rem;
+            text-align: center
+        }
+
+        .result-card.female {
+            background: #9f1239
+        }
+
+        .result-card h4 {
+            font-size: .9rem;
+            opacity: .9;
+            margin-bottom: .3rem
+        }
+
+        .result-value {
+            font-size: 1.8rem;
+            font-weight: 700
+        }
+
+        .result-unit {
+            font-size: .85rem;
+            opacity: .8
+        }
+
+        .male-col {
+            background: #ebf8ff !important
+        }
+
+        .female-col {
+            background: #fff5f7 !important
+        }
+
+        .highlight-cell {
+            background: #fefce8 !important;
+            font-weight: 600
+        }
+
+        .machine-cell {
+            background: #e0f2fe !important
+        }
+
+        .section-header-row td {
+            background: #e2e8f0 !important;
+            font-weight: 600;
+            color: var(--primary)
+        }
+
+        .summary-box {
+            background: #f8fafc;
+            padding: 1.2rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            border: 1px solid var(--border)
+        }
+
+        .summary-box h4 {
+            color: var(--primary);
+            margin-bottom: .8rem
+        }
+
+        .summary-box ul {
+            list-style: none
+        }
+
+        .summary-box li {
+            padding: .3rem 0;
+            border-bottom: 1px dashed var(--border)
+        }
+
+        .gantt-container {
+            margin-top: 1rem
+        }
+
+        .gantt-chart {
+            position: relative;
+            background: #fafafa;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-x: auto
+        }
+
+        .gantt-timeline {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: .5rem;
+            padding-bottom: .3rem
+        }
+
+        .gantt-timeline span {
+            flex: 1;
+            text-align: center;
+            font-size: .75rem;
+            color: #718096
+        }
+
+        .gantt-row {
+            display: flex;
+            align-items: center;
+            margin: .4rem 0
+        }
+
+        .gantt-label {
+            width: 60px;
+            font-weight: 600;
+            font-size: .85rem
+        }
+
+        .gantt-bars {
+            flex: 1;
+            height: 28px;
+            position: relative;
+            background: #f0f0f0;
+            border-radius: 4px
+        }
+
+        .gantt-bar {
+            position: absolute;
+            height: 100%;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: .75rem;
+            font-weight: 600
+        }
+
+        .gantt-bar.critical {
+            background: var(--critical)
+        }
+
+        .gantt-bar.normal {
+            background: var(--accent)
+        }
+
+        .gantt-slack {
+            position: absolute;
+            height: 100%;
+            background: repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(49, 130, 206, .2) 3px, rgba(49, 130, 206, .2) 6px);
+            border: 1px dashed var(--accent);
+            border-radius: 4px
+        }
+
+        .site-footer {
+            margin-top: 2rem;
+            padding: 0.8rem 1.5rem;
+            text-align: center;
+            background: #fff;
+            color: var(--primary);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            max-width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .site-footer span {
+            opacity: 0.8;
+            font-weight: 300;
+            margin: 0 0.5rem;
+        }
+
+        /* موبایل رسپانسیو */
+        @media (max-width: 600px) {
+            body {
+                padding: 0.8rem;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .project-info {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+                padding: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .result-value {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .section-title {
+                font-size: 1rem;
+            }
+
+            #network-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 زمان‌سنجی مونتاژ سه راهی برق صنعتی</h1>
+            <p>Time Study Dashboard - Industrial Electrical Socket Assembly</p>
+            <div class="badge"></div>
+        </div>
+
+        <div class="project-info">
+            <div class="info-item"><span>نام محصول:</span> مونتاژ سه راهی برق</div>
+            <div class="info-item"><span>نام بخش:</span>خط مونتاژ</div>
+            <div class="info-item"><span>نام ایستگاه:</span>ایستگاه ۴</div>
+            <div class="info-item"><span>نام اپراتور:</span></div>
+            <div class="info-item"><span>تاریخ:</span> 1404/10/03</div>
+            <div class="info-item"><span>شماره زمان‌سنجی:</span> 1</div>
+            <div class="info-item"><span>ساعت آغاز:</span> 09:00</div>
+            <div class="info-item"><span>ساعت خاتمه:</span> 10:30</div>
+            <div class="info-item full-width"><span>روش:</span> زمان‌سنجی با کرونومتر (Stopwatch)</div>
+        </div>
+
+        <div id="dashboard" class="section active">
+            <div class="dashboard-grid">
+                <div class="dash-card" onclick="showSection('cpm')">
+                    <div class="icon">🔀</div>
+                    <h3>نمودار شبکه <span dir="ltr">(CPM)</span></h3>
+                    <p>تحلیل مسیر بحرانی</p>
+                </div>
+                <div class="dash-card" onclick="showSection('gantt')">
+                    <div class="icon">📊</div>
+                    <h3>نمودار گانت <span dir="ltr">(Gantt Chart)</span></h3>
+                    <p>نمایش زمانی فعالیت‌ها</p>
+                </div>
+                <div class="dash-card" onclick="showSection('scheduling')">
+                    <div class="icon">📋</div>
+                    <h3>جدول محاسبات <span dir="ltr">(ES/EF/LS/LF)</span></h3>
+                    <p>ES, EF, LS, LF, Slack</p>
+                </div>
+                <div class="dash-card" onclick="showSection('sample')">
+                    <div class="icon">🧮</div>
+                    <h3>حجم نمونه <span dir="ltr">(N)</span></h3>
+                    <p>جدول می-تگ</p>
+                </div>
+                <div class="dash-card" onclick="showSection('westinghouse')">
+                    <div class="icon">⭐</div>
+                    <h3>ضریب عملکرد <span dir="ltr">(Rating)</span></h3>
+                    <p>رتبه‌بندی اپراتور</p>
+                </div>
+                <div class="dash-card" onclick="showSection('timestudy')">
+                    <div class="icon">⏱️</div>
+                    <h3>برگه زمان‌سنجی <span dir="ltr">(Time Study)</span></h3>
+                    <p>زمان نرمال</p>
+                </div>
+                <div class="dash-card" onclick="showSection('allowance')">
+                    <div class="icon">👥</div>
+                    <h3>ضرایب تساهل</h3>
+                    <p>مقایسه جنسیتی</p>
+                </div>
+                <div class="dash-card" onclick="showSection('results')">
+                    <div class="icon">🎯</div>
+                    <h3>نتایج نهایی <span dir="ltr">(Final Results)</span></h3>
+                    <p>زمان استاندارد</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="cpm" class="section">
+            <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+            <div class="card">
+                <h2 class="section-title"><span>🔀</span> نمودار شبکه و تحلیل CPM</h2>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="label">تعداد فعالیت</div>
+                        <div class="value">6</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="label">مدت پروژه</div>
+                        <div class="value">21 ثانیه</div>
+                    </div>
+                    <div class="info-card critical">
+                        <div class="label">مسیر بحرانی <span dir="ltr">(Critical Path)</span></div>
+                        <div class="value">A→B→D→E→F</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="label">غیربحرانی</div>
+                        <div class="value">C (Slack=1)</div>
+                    </div>
+                </div>
+                <div style="position: relative;">
+                    <div id="network-container"></div>
+                    <div class="activity-card" id="activityCard"></div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-box critical"></div><span>مسیر بحرانی <span dir="ltr">(Critical
+                                Path)</span></span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box normal"></div><span>غیربحرانی</span>
+                    </div>
+                </div>
+                <div class="note-box"><strong>راهنما:</strong> روی هر گره کلیک کنید تا جزئیات آن نمایش داده شود.</div>
+            </div>
+        </div>
+
+        <div id="gantt" class="section">
+            <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+            <div class="card">
+                <h2 class="section-title"><span>📊</span> نمودار گانت (Gantt Chart)</h2>
+                <div class="gantt-container">
+                    <div class="gantt-chart">
+                        <div class="gantt-timeline" id="ganttTimeline"></div>
+                        <div id="ganttRows"></div>
+                    </div>
+                </div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-box critical"></div><span>فعالیت بحرانی</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box normal"></div><span>فعالیت غیربحرانی</span>
+                    </div>
+                    <div class="legend-item">
+                        <div style="width:16px;height:16px;border:1px dashed #3182ce;background:rgba(49,130,206,.1)">
+                        </div><span>شناوری (Slack)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="scheduling" class="section">
+            <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+            <div class="card">
+                <h2 class="section-title"><span>📋</span> جدول زمان‌بندی تفصیلی</h2>
+                <div class="formula-box">$$ES_j = \max(EF_i) \quad|\quad EF = ES + D \quad|\quad LF_i = \min(LS_j)
+                    \quad|\quad LS = LF - D \quad|\quad Slack = LS - ES$$</div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>فعالیت</th>
+                                <th>شرح</th>
+                                <th>مدت <span dir="ltr">(D)</span></th>
+                                <th>زودترین شروع <span dir="ltr">(ES)</span></th>
+                                <th>زودترین پایان <span dir="ltr">(EF)</span></th>
+                                <th>دیرترین شروع <span dir="ltr">(LS)</span></th>
+                                <th>دیرترین پایان <span dir="ltr">(LF)</span></th>
+                                <th>شناوری <span dir="ltr">(Slack)</span></th>
+                                <th>مسیر بحرانی <span dir="ltr">(Critical)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="critical-row">
+                                <td><b>A</b></td>
+                                <td>برداشتن بدنه</td>
+                                <td>3</td>
+                                <td>0</td>
+                                <td>3</td>
+                                <td>0</td>
+                                <td>3</td>
+                                <td>0</td>
+                                <td><span class="badge-sm badge-critical">بله</span></td>
+                            </tr>
+                            <tr class="critical-row">
+                                <td><b>B</b></td>
+                                <td>جاگذاری ترمینال</td>
+                                <td>5</td>
+                                <td>3</td>
+                                <td>8</td>
+                                <td>3</td>
+                                <td>8</td>
+                                <td>0</td>
+                                <td><span class="badge-sm badge-critical">بله</span></td>
+                            </tr>
+                            <tr>
+                                <td><b>C</b></td>
+                                <td>جاگذاری مهره</td>
+                                <td>4</td>
+                                <td>3</td>
+                                <td>7</td>
+                                <td>4</td>
+                                <td>8</td>
+                                <td>1</td>
+                                <td><span class="badge-sm badge-normal">خیر</span></td>
+                            </tr>
+                            <tr class="critical-row">
+                                <td><b>D</b></td>
+                                <td>پیچ‌گوشتی برقی</td>
+                                <td>6</td>
+                                <td>8</td>
+                                <td>14</td>
+                                <td>8</td>
+                                <td>14</td>
+                                <td>0</td>
+                                <td><span class="badge-sm badge-critical">بله</span></td>
+                            </tr>
+                            <tr class="critical-row">
+                                <td><b>E</b></td>
+                                <td>بازرسی</td>
+                                <td>3</td>
+                                <td>14</td>
+                                <td>17</td>
+                                <td>14</td>
+                                <td>17</td>
+                                <td>0</td>
+                                <td><span class="badge-sm badge-critical">بله</span></td>
+                            </tr>
+                            <tr class="critical-row">
+                                <td><b>F</b></td>
+                                <td>بسته‌بندی</td>
+                                <td>4</td>
+                                <td>17</td>
+                                <td>21</td>
+                                <td>17</td>
+                                <td>21</td>
+                                <td>0</td>
+                                <td><span class="badge-sm badge-critical">بله</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="sample" class="section">
+            <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+            <div class="card">
+                <h2 class="section-title"><span>🧮</span> تعیین حجم نمونه (می-تگ)</h2>
+                <div class="formula-box">$$N = \left( \frac{40 \sqrt{N' \sum X^2 - (\sum X)^2}}{\sum X} \right)^2$$
+                </div>
+
+                <h4 style="margin: 1rem 0; color: var(--primary);">📋 مشاهدات اولیه <span dir="ltr">(Pilot Data)</span>
+                </h4>
+                <div class="table-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 1.5rem;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>شماره سیکل <span dir="ltr">(Cycle)</span></th>
+                                <th>1</th>
+                                <th>2</th>
+                                <th>3</th>
+                                <th>4</th>
+                                <th>5</th>
+                                <th>6</th>
+                                <th>7</th>
+                                <th>8</th>
+                                <th>9</th>
+                                <th>10</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><b>زمان مشاهده (OT)</b></td>
+                                <td>24</td>
+                                <td>26</td>
+                                <td>25</td>
+                                <td>23</td>
+                                <td>27</td>
+                                <td>25</td>
+                                <td>24</td>
+                                <td>26</td>
+                                <td>28</td>
+                                <td>24</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>مشاهدات اولیه <span dir="ltr">(N')</span></th>
+                                <th>میانگین <span dir="ltr">(X̄)</span></th>
+                                <th>دامنه <span dir="ltr">(R)</span></th>
+                                <th>R/X̄</th>
+                                <th>حجم نمونه <span dir="ltr">(N)</span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>10</td>
+                                <td>25.2</td>
+                                <td>8.1</td>
+                                <td class="highlight-cell">0.32</td>
+                                <td class="highlight-cell">30</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="note-box"><b>نتیجه:</b> با اطمینان 95% و دقت ±5%، <b>30 مشاهده</b> مورد نیاز است.</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="westinghouse" class="section">
+        <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+        <div class="card">
+            <h2 class="section-title"><span>⭐</span> رتبه‌بندی وستینگهاوس <span dir="ltr">(Westinghouse
+                    Rating)</span></h2>
+            <div class="note-box"
+                style="background: #eef2ff; border-right: 4px solid #4f46e5; color: #3730a3; margin-bottom: 1.5rem;">
+                <strong>تحلیل ضریب عملکرد:</strong>
+                در این پروژه برای ارزیابی عملکرد اپراتور از سیستم چهارعاملی وستینگهاوس بهره گرفته شده است. در این
+                روش، مهارت، تلاش، شرایط محیطی و ثبات کاری اپراتور سنجیده شده و مجموع این امتیازات با عدد پایه ۱ جمع
+                می‌گردد تا بازدهی نهایی اپراتور مشخص شود.
+            </div>
+            <div class="formula-box"
+                style="border: 2px solid #e2e8f0; background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <div
+                    style="font-weight: 700; color: #1a365d; margin-bottom: 0.8rem; border-bottom: 1px solid #edf2f7; padding-bottom: 0.4rem;">
+                    فرمول محاسبه: ضریب نهایی = ۱ + مجموع امتیاز عوامل
+                </div>
+                <p style="direction: ltr; font-family: 'Courier New', monospace; font-size: 1.1rem; color: #2d3748;">
+                    Rating = 1 + [Skill + Effort + Condition + Consistency]
+                </p>
+                <p style="direction: ltr; margin-top: 0.5rem; font-size: 1.05rem; color: #1a365d;">
+                    1 + 0.08 + 0.05 + 0.00 + 0.01 = <strong>1.14 → (114%)</strong>
+                </p>
+            </div>
+        </div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>عامل</th>
+                        <th>کلاس</th>
+                        <th>توضیح</th>
+                        <th>امتیاز</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><b>مهارت (SK)</b></td>
+                        <td>B2</td>
+                        <td>عالی</td>
+                        <td class="highlight-cell">+0.08</td>
+                    </tr>
+                    <tr>
+                        <td><b>تلاش (EF)</b></td>
+                        <td>C1</td>
+                        <td>خوب</td>
+                        <td class="highlight-cell">+0.05</td>
+                    </tr>
+                    <tr>
+                        <td><b>شرایط (CD)</b></td>
+                        <td>D</td>
+                        <td>متوسط</td>
+                        <td>0.00</td>
+                    </tr>
+                    <tr>
+                        <td><b>سازگاری (CS)</b></td>
+                        <td>C</td>
+                        <td>خوب</td>
+                        <td class="highlight-cell">+0.01</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td colspan="3"><b>مجموع ضرایب + 1 (پایه)</b></td>
+                        <td><b>+0.14 → 114%</b></td>
+                    </tr>
+                </tbody>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+
+    <div id="timestudy" class="section">
+        <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+        <div class="card">
+            <h2 class="section-title"><span>⏱️</span> برگه زمان‌سنجی</h2>
+            <div class="formula-box">$$NT = OT \times \frac{Rating}{100}$$</div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>عنصر</th>
+                            <th>شرح</th>
+                            <th>زمان مشاهده <span dir="ltr">(OT)</span></th>
+                            <th>زمان عملیات <span dir="ltr">(OT)</span></th>
+                            <th>ضریب عملکرد <span dir="ltr">(Rating)</span></th>
+                            <th>زمان نرمال <span dir="ltr">(NT)</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><b>A</b></td>
+                            <td>برداشتن بدنه</td>
+                            <td>3.0</td>
+                            <td>3.0</td>
+                            <td class="highlight-cell">114%</td>
+                            <td class="highlight-cell">3.42</td>
+                        </tr>
+                        <tr>
+                            <td><b>B</b></td>
+                            <td>جاگذاری ترمینال</td>
+                            <td>8.0</td>
+                            <td>5.0</td>
+                            <td class="highlight-cell">114%</td>
+                            <td class="highlight-cell">5.70</td>
+                        </tr>
+                        <tr>
+                            <td><b>C</b></td>
+                            <td>جاگذاری مهره</td>
+                            <td>12.0</td>
+                            <td>4.0</td>
+                            <td class="highlight-cell">114%</td>
+                            <td class="highlight-cell">4.56</td>
+                        </tr>
+                        <tr>
+                            <td><b>D</b></td>
+                            <td>پیچ‌گوشتی برقی (MCT)</td>
+                            <td>18.0</td>
+                            <td>6.0</td>
+                            <td class="machine-cell">100%</td>
+                            <td class="machine-cell">6.00 <span dir="ltr">(MCT)</span></td>
+                        </tr>
+                        <tr>
+                            <td><b>E</b></td>
+                            <td>بازرسی</td>
+                            <td>21.0</td>
+                            <td>3.0</td>
+                            <td class="highlight-cell">114%</td>
+                            <td class="highlight-cell">3.42</td>
+                        </tr>
+                        <tr>
+                            <td><b>F</b></td>
+                            <td>بسته‌بندی</td>
+                            <td>25.0</td>
+                            <td>4.0</td>
+                            <td class="highlight-cell">114%</td>
+                            <td class="highlight-cell">4.56</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td colspan="5"><b>مجموع زمان نرمال</b></td>
+                            <td><b>27.66</b></td>
+                        </tr>
+                    </tbody>
+                    </tbody>
+                </table>
+            </div>
+            <div class="note-box"><b>نکته:</b> عنصر D (MCT) با بازده ثابت 100% محاسبه شده.</div>
+        </div>
+    </div>
+
+    <div id="allowance" class="section">
+        <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+        <div class="card">
+            <h2 class="section-title"><span>👥</span> ضرایب تساهل</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th rowspan="2">نوع تساهل</th>
+                            <th colspan="2">مقدار (%)</th>
+                        </tr>
+                        <tr>
+                            <th style="background:#2c5282">مرد</th>
+                            <th style="background:#9f1239">زن</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="section-header-row">
+                            <td colspan="3">ضرایب ثابت</td>
+                        </tr>
+                        <tr>
+                            <td><b>نیازهای شخصی</b></td>
+                            <td class="male-col">5%</td>
+                            <td class="female-col">7%</td>
+                        </tr>
+                        <tr>
+                            <td><b>خستگی پایه</b></td>
+                            <td class="male-col">4%</td>
+                            <td class="female-col">4%</td>
+                        </tr>
+                        <tr class="section-header-row">
+                            <td colspan="3">ضرایب متغیر</td>
+                        </tr>
+                        <tr>
+                            <td><b>ایستادن</b></td>
+                            <td class="male-col">2%</td>
+                            <td class="female-col">2%</td>
+                        </tr>
+                        <tr>
+                            <td><b>وضعیت غیرطبیعی</b></td>
+                            <td class="male-col">0%</td>
+                            <td class="female-col">0%</td>
+                        </tr>
+                        <tr>
+                            <td><b>تنش بینایی</b></td>
+                            <td class="male-col">2%</td>
+                            <td class="female-col">2%</td>
+                        </tr>
+                        <tr>
+                            <td><b>تنش فکری</b></td>
+                            <td class="male-col">1%</td>
+                            <td class="female-col">1%</td>
+                        </tr>
+                        <tr class="total-row">
+                            <td><b>مجموع</b></td>
+                            <td><b>14%</b></td>
+                            <td><b>16%</b></td>
+                        </tr>
+                    </tbody>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div id="results" class="section">
+        <button class="back-btn" onclick="showSection('dashboard')">→ بازگشت</button>
+        <div class="card">
+            <h2 class="section-title"><span>🎯</span> نتایج نهایی</h2>
+            <div class="formula-box">$$ST = NT \times \left(1 + \frac{Allowance}{100}\right)$$</div>
+            <div class="result-grid">
+                <div class="result-card">
+                    <h4>👨 اپراتور مرد</h4>
+                    <div class="result-value">31.53</div>
+                    <div class="result-unit">ثانیه</div>
+                </div>
+                <div class="result-card female">
+                    <h4>👩 اپراتور زن</h4>
+                    <div class="result-value">32.09</div>
+                    <div class="result-unit">ثانیه</div>
+                </div>
+                <div class="result-card" style="background:#276749">
+                    <h4>تولید/ساعت (مرد)</h4>
+                    <div class="result-value">~114</div>
+                    <div class="result-unit">واحد</div>
+                </div>
+                <div class="result-card" style="background:#744210">
+                    <h4>تولید/ساعت (زن)</h4>
+                    <div class="result-value">~112</div>
+                    <div class="result-unit">واحد</div>
+                </div>
+            </div>
+            <div class="summary-box">
+                <h4>📊 خلاصه:</h4>
+                <ul>
+                    <li>زمان نرمال <span dir="ltr">(NT)</span>: <b>27.66 ثانیه</b></li>
+                    <li>تساهل مرد: <b>14%</b> | زن: <b>16%</b></li>
+                    <li>زمان استاندارد <span dir="ltr">(ST)</span> مرد: <b>31.53 ثانیه</b></li>
+                    <li>زمان استاندارد <span dir="ltr">(ST)</span> زن: <b>32.09 ثانیه</b></li>
+                    <li>مسیر بحرانی: <b>A→B→D→E→F</b> (21 ثانیه)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+        const activities = {
+            A: { name: 'A', desc: 'برداشتن بدنه و قرار دادن در فیکسچر', duration: 3, ES: 0, EF: 3, LS: 0, LF: 3, slack: 0, critical: true },
+            B: { name: 'B', desc: 'جاگذاری ترمینال‌های برنجی', duration: 5, ES: 3, EF: 8, LS: 3, LF: 8, slack: 0, critical: true },
+            C: { name: 'C', desc: 'جاگذاری مهره‌ها', duration: 4, ES: 3, EF: 7, LS: 4, LF: 8, slack: 1, critical: false },
+            D: { name: 'D', desc: 'بستن پیچ‌ها با پیچ‌گوشتی برقی', duration: 6, ES: 8, EF: 14, LS: 8, LF: 14, slack: 0, critical: true },
+            E: { name: 'E', desc: 'بازرسی چشمی و تست', duration: 3, ES: 14, EF: 17, LS: 14, LF: 17, slack: 0, critical: true },
+            F: { name: 'F', desc: 'بسته‌بندی نهایی', duration: 4, ES: 17, EF: 21, LS: 17, LF: 21, slack: 0, critical: true }
+        };
+
+        let network;
+
+        function showSection(id) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (id === 'cpm') setTimeout(initNetwork, 100);
+            if (id === 'gantt') setTimeout(initGantt, 100);
+        }
+
+        function initNetwork() {
+            const container = document.getElementById('network-container');
+            if (network) return;
+
+            const nodeColor = (c) => c ? { background: '#c53030', border: '#9b2c2c' } : { background: '#3182ce', border: '#2c5282' };
+
+            const nodes = new vis.DataSet([
+                { id: 'start', label: 'شروع', color: { background: '#718096', border: '#4a5568' }, font: { color: '#fff' } },
+                { id: 'A', label: 'A\nD=3', color: nodeColor(true), font: { color: '#fff' }, data: activities.A },
+                { id: 'B', label: 'B\nD=5', color: nodeColor(true), font: { color: '#fff' }, data: activities.B },
+                { id: 'C', label: 'C\nD=4', color: nodeColor(false), font: { color: '#fff' }, data: activities.C },
+                { id: 'D', label: 'D\nD=6', color: nodeColor(true), font: { color: '#fff' }, data: activities.D },
+                { id: 'E', label: 'E\nD=3', color: nodeColor(true), font: { color: '#fff' }, data: activities.E },
+                { id: 'F', label: 'F\nD=4', color: nodeColor(true), font: { color: '#fff' }, data: activities.F },
+                { id: 'end', label: 'پایان', color: { background: '#718096', border: '#4a5568' }, font: { color: '#fff' } }
+            ]);
+
+            const edgeColor = (c) => ({ color: c ? '#c53030' : '#3182ce' });
+            const edges = new vis.DataSet([
+                { from: 'start', to: 'A', arrows: 'to', color: edgeColor(true), width: 3 },
+                { from: 'A', to: 'B', arrows: 'to', color: edgeColor(true), width: 3 },
+                { from: 'A', to: 'C', arrows: 'to', color: edgeColor(false), width: 2 },
+                { from: 'B', to: 'D', arrows: 'to', color: edgeColor(true), width: 3 },
+                { from: 'C', to: 'D', arrows: 'to', color: edgeColor(false), width: 2 },
+                { from: 'D', to: 'E', arrows: 'to', color: edgeColor(true), width: 3 },
+                { from: 'E', to: 'F', arrows: 'to', color: edgeColor(true), width: 3 },
+                { from: 'F', to: 'end', arrows: 'to', color: edgeColor(true), width: 3 }
+            ]);
+
+            const options = {
+                layout: { hierarchical: { direction: 'LR', sortMethod: 'directed', levelSeparation: 150, nodeSpacing: 100 } },
+                nodes: { shape: 'box', margin: 10, font: { face: 'Vazirmatn', size: 12, multi: true }, borderWidth: 2, shadow: true },
+                edges: { smooth: { type: 'cubicBezier', forceDirection: 'horizontal' } },
+                physics: false,
+                interaction: { zoomView: true, dragView: true }
+            };
+
+            network = new vis.Network(container, { nodes, edges }, options);
+
+            network.on('click', function (params) {
+                const card = document.getElementById('activityCard');
+                if (params.nodes.length > 0 && activities[params.nodes[0]]) {
+                    const act = activities[params.nodes[0]];
+                    card.className = 'activity-card ' + (act.critical ? 'critical' : 'non-critical');
+                    card.innerHTML = `
+                <h4>${act.name}: ${act.desc}</h4>
+                <div class="row"><span>مدت <span dir="ltr">(D)</span>:</span><span>${act.duration} ثانیه</span></div>
+                <div class="row"><span>زودترین <span dir="ltr">(ES/EF)</span>:</span><span>${act.ES} / ${act.EF}</span></div>
+                <div class="row"><span>دیرترین <span dir="ltr">(LS/LF)</span>:</span><span>${act.LS} / ${act.LF}</span></div>
+                <div class="row"><span>شناوری <span dir="ltr">(Slack)</span>:</span><span>${act.slack}</span></div>
+                <div class="status ${act.critical ? 'critical' : 'non-critical'}">${act.critical ? '🔴 بحرانی' : '🔵 غیربحرانی'}</div>
+            `;
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function initGantt() {
+            const timeline = document.getElementById('ganttTimeline');
+            const rows = document.getElementById('ganttRows');
+            if (rows.children.length > 0) return;
+
+            const totalTime = 21;
+            const scale = 100 / totalTime;
+
+            timeline.innerHTML = '';
+            for (let i = 0; i <= totalTime; i += 3) {
+                timeline.innerHTML += `<span>${i}</span>`;
+            }
+
+            rows.innerHTML = '';
+            Object.values(activities).forEach(act => {
+                const left = act.ES * scale;
+                const width = act.duration * scale;
+                const slackWidth = act.slack * scale;
+
+                let slackHtml = '';
+                if (act.slack > 0) {
+                    slackHtml = `<div class="gantt-slack" style="left:${left + width}%;width:${slackWidth}%"></div>`;
+                }
+
+                rows.innerHTML += `
+            <div class="gantt-row">
+                <div class="gantt-label">${act.name}</div>
+                <div class="gantt-bars">
+                    <div class="gantt-bar ${act.critical ? 'critical' : 'normal'}" style="left:${left}%;width:${width}%">${act.duration}s</div>
+                    ${slackHtml}
+                </div>
+            </div>
+        `;
+            });
+        }
+    </script>
+    <div class="site-footer">
+        پروژه زمان‌سنجی <span>|</span> استاد باذلی
+    </div>
+</body>
+
+</html>
